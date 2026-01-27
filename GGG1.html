@@ -133,7 +133,7 @@
                         </a>
                         <span class="cart-badge badge bg-dark rounded-pill" id="cartCount">3</span>
                     </div>
-                    <a href="#" class="text-dark fs-5"><i class="bi bi-person-circle"></i></a>
+                    <a href="#" class="text-dark fs-5" onclick="goToProfile(); return false;"><i class="bi bi-person-circle"></i></a>
                 </div>
             </div>
         </div>
@@ -761,6 +761,11 @@
         // Função genérica para scroll
         const scrollToSection = (sectionId) => {
             document.getElementById(sectionId).scrollIntoView({ behavior: 'smooth' });
+        };
+
+        // Ir para página de perfil
+        const goToProfile = () => {
+            window.location.href = 'profile.html';
         };
 
         // Inicialização
