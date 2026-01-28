@@ -113,6 +113,9 @@
     </style>
 </head>
 <body>
+    <div id="ariaLive" aria-live="polite" style="position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden;"></div>
+    <div id="toastContainer" aria-hidden="false" style="position: fixed; right: 16px; bottom: 20px; z-index: 1060;"></div>
+
     <div class="login-container">
         <a href="magstore.html" class="back-link"><i class="bi bi-chevron-left"></i> Voltar</a>
         
@@ -162,6 +165,46 @@
         // IMPORTANTE: Substitua pela sua credencial real do Google Cloud Console
         const GOOGLE_CLIENT_ID = '1054389012781-95voao7ltvqvondo6olv9kfijsp6eq0f.apps.googleusercontent.com';
 
+        // Toast utility and announce helper (shared with other pages)
+        function showToast(message, opts = {}) {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+            const toast = document.createElement('div');
+            toast.className = 'toast align-items-center text-bg-dark border-0 p-3';
+            toast.style.minWidth = '220px';
+            toast.style.boxShadow = '0 6px 18px rgba(0,0,0,0.3)';
+            const body = document.createElement('div');
+            body.style.display = 'flex';
+            body.style.justifyContent = 'space-between';
+            body.style.alignItems = 'center';
+            body.innerHTML = `<div style="flex:1; margin-right:8px;">${message}</div>`;
+            if (opts.undoText && typeof opts.undo === 'function') {
+                const undoBtn = document.createElement('button');
+                undoBtn.className = 'btn btn-sm btn-outline-light';
+                undoBtn.textContent = opts.undoText;
+                undoBtn.onclick = () => { opts.undo(); container.removeChild(toast); };
+                body.appendChild(undoBtn);
+            }
+            toast.appendChild(body);
+            container.appendChild(toast);
+            announce(message);
+            setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, opts.duration || 3500);
+        }
+
+        function announce(msg) {
+            const region = document.getElementById('ariaLive');
+            if (!region) return;
+            region.textContent = '';
+            setTimeout(() => { region.textContent = msg; }, 50);
+        }
+
+        // Image fallback helper (applies to images with data-fallback attribute)
+        function applyImageFallbacks() {
+            document.querySelectorAll('img[data-fallback]').forEach(img => {
+                img.onerror = () => { img.src = img.getAttribute('data-fallback'); };
+            });
+        }
+
         // Callback da autenticação do Google
         function handleCredentialResponse(response) {
             if (response.credential) {
@@ -190,7 +233,10 @@
                 
                 localStorage.setItem('magstore_user', JSON.stringify(userInfo));
                 localStorage.setItem('magstore_authenticated', 'true');
-                
+
+                showToast('Login efetuado — redirecionando...', { duration: 2500 });
+                announce('Login efetuado');
+
                 // Redirecionar para página de perfil após 1 segundo
                 setTimeout(() => {
                     window.location.href = 'profile.html';
@@ -198,14 +244,18 @@
             }
         }
 
-        // Inicializar Google Sign-In
+        // Inicializar Google Sign-In e comportamentos da página
         window.onload = () => {
             // Verificar se já está autenticado
             const isAuthenticated = localStorage.getItem('magstore_authenticated');
             if (isAuthenticated === 'true') {
-                window.location.href = 'profile.html';
+                showToast('Você já está autenticado — abrindo perfil...', { duration: 1800 });
+                setTimeout(() => { window.location.href = 'profile.html'; }, 900);
+                return;
             }
-            
+
+            applyImageFallbacks();
+
             // Inicializar o widget do Google Sign-In
             try {
                 google.accounts.id.initialize({
@@ -215,13 +265,38 @@
             } catch (error) {
                 console.warn('Google Sign-In não configurado corretamente. Certifique-se de adicionar seu CLIENT_ID.');
             }
+
+            // Keyboard shortcuts: g = Google sign-in, h = home, b = voltar
+            document.addEventListener('keydown', (e) => {
+                const tag = document.activeElement.tagName.toLowerCase();
+                if (tag === 'input' || tag === 'textarea') return;
+                if (e.key === 'g') {
+                    e.preventDefault();
+                    // Try to click the Google sign-in button if rendered
+                    const gs = document.querySelector('#g_id_signin');
+                    const btn = gs?.querySelector('button') || gs;
+                    if (btn) btn.click();
+                    announce('Abrindo botão de login do Google');
+                }
+                if (e.key === 'h') {
+                    e.preventDefault();
+                    window.location.href = 'magstore.html';
+                }
+                if (e.key === 'b') {
+                    e.preventDefault();
+                    history.back();
+                }
+            });
         };
 
-        // Logout
+        // Logout (available for completeness; will revoke if user exists)
         function logout() {
+            const userEmail = localStorage.getItem('magstore_user') ? JSON.parse(localStorage.getItem('magstore_user')).email : '';
             localStorage.removeItem('magstore_user');
             localStorage.removeItem('magstore_authenticated');
-            google.accounts.id.revoke(localStorage.getItem('magstore_user') ? JSON.parse(localStorage.getItem('magstore_user')).email : '', () => {
+            showToast('Até logo — você saiu da sua conta');
+            announce('Logout efetuado');
+            google.accounts.id.revoke(userEmail, () => {
                 window.location.href = 'magstore.html';
             });
         }
