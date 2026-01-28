@@ -474,6 +474,25 @@
         </div>
     </footer>
 
+    <!-- Logout confirmation modal -->
+    <div class="modal fade" id="logoutModal" tabindex="-1" aria-labelledby="logoutModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="logoutModalLabel">Confirmar saída</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                    Tem certeza que deseja sair da sua conta? Você será redirecionado para a página inicial.
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" id="confirmLogoutBtn" class="btn btn-primary">Sim, sair</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // Mostrar seção
@@ -497,18 +516,31 @@
             event.target.closest('.sidebar-item').classList.add('active');
         };
 
-        // Logout
+        // Logout: open confirmation modal instead of native prompt
         const logout = (event) => {
-            event.preventDefault();
-            if (confirm('Tem certeza que deseja sair?')) {
-                localStorage.removeItem('magstore_user');
-                localStorage.removeItem('magstore_authenticated');
-                google.accounts.id.revoke('', () => {
-                    showToast('Você saiu da conta');
-                    announce('Sessão encerrada');
-                    window.location.href = 'magstore.html';
-                });
-            }
+            if (event) event.preventDefault();
+            const logoutModalEl = document.getElementById('logoutModal');
+            if (!logoutModalEl) return performLogout();
+            const bsModal = new bootstrap.Modal(logoutModalEl);
+            bsModal.show();
+        };
+
+        // Perform the actual logout (called when user confirms)
+        const performLogout = () => {
+            const userEmail = localStorage.getItem('magstore_user') ? JSON.parse(localStorage.getItem('magstore_user')).email : '';
+            localStorage.removeItem('magstore_user');
+            localStorage.removeItem('magstore_authenticated');
+            showToast('Você saiu da conta');
+            announce('Sessão encerrada');
+            // attempt revoke if API present
+            try {
+                if (google && google.accounts && google.accounts.id && typeof google.accounts.id.revoke === 'function') {
+                    google.accounts.id.revoke(userEmail, () => { window.location.href = 'magstore.html'; });
+                    return;
+                }
+            } catch (err) { /* ignore and fallback */ }
+            // fallback redirect
+            window.location.href = 'magstore.html';
         };
 
         // Inicialização
@@ -616,6 +648,19 @@
             region.textContent = '';
             setTimeout(() => { region.textContent = msg; }, 50);
         };
+
+        // Wire modal confirm button after DOM ready
+        document.addEventListener('DOMContentLoaded', () => {
+            const confirmBtn = document.getElementById('confirmLogoutBtn');
+            if (confirmBtn) {
+                confirmBtn.addEventListener('click', () => {
+                    const modalEl = document.getElementById('logoutModal');
+                    const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+                    modal.hide();
+                    performLogout();
+                });
+            }
+        });
 
         // Debug helpers removed to prevent exposing authentication data.
     </script>
