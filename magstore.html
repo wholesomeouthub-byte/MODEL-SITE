@@ -872,9 +872,8 @@
                     modal.show();
                     announce('Carrinho aberto');
                 }
-                if (e.key === 'p') {
-                    goToProfile();
-                }
+                // Note: removed 'p' keyboard shortcut to prevent automatic redirect to login.
+                // Users must click the profile icon to start the login flow.
             });
         });
 
