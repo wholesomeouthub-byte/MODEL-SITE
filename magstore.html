@@ -765,7 +765,12 @@
 
         // Ir para página de perfil
         const goToProfile = () => {
-            window.location.href = 'profile.html';
+            const isAuthenticated = localStorage.getItem('magstore_authenticated');
+            if (isAuthenticated === 'true') {
+                window.location.href = 'profile.html';
+            } else {
+                window.location.href = 'login.html';
+            }
         };
 
         // Inicialização
