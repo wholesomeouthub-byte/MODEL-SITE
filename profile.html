@@ -532,14 +532,16 @@
             localStorage.removeItem('magstore_authenticated');
             showToast('Você saiu da conta');
             announce('Sessão encerrada');
-            // attempt revoke if API present
+            // attempt revoke if API present, but always redirect after short timeout as fallback
             try {
                 if (google && google.accounts && google.accounts.id && typeof google.accounts.id.revoke === 'function') {
+                    // Call revoke and schedule a fallback redirect
                     google.accounts.id.revoke(userEmail, () => { window.location.href = 'magstore.html'; });
+                    setTimeout(() => { window.location.href = 'magstore.html'; }, 800);
                     return;
                 }
-            } catch (err) { /* ignore and fallback */ }
-            // fallback redirect
+            } catch (err) { /* ignore and continue to redirect */ }
+            // immediate fallback redirect
             window.location.href = 'magstore.html';
         };
 
