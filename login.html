@@ -140,11 +140,7 @@
             </div>
 
             <div class="google-button-wrapper">
-                <div id="g_id_onload"
-                     data-client_id="1054389012781-95voao7ltvqvondo6olv9kfijsp6eq0f.apps.googleusercontent.com"
-                     data-callback="handleCredentialResponse">
-                </div>
-                <div id="g_id_signin" data-type="standard" data-size="large" data-theme="outline" data-text="signin_with" data-shape="rectangular" data-logo_alignment="left"></div>
+                    <div id="g_id_signin" data-type="standard" data-size="large" data-theme="outline" data-text="signin_with" data-shape="rectangular" data-logo_alignment="left"></div>
             </div>
 
             <div class="login-footer">
@@ -257,11 +253,22 @@
             applyImageFallbacks();
 
             // Inicializar o widget do Google Sign-In
-            try {
+                try {
                 google.accounts.id.initialize({
                     client_id: GOOGLE_CLIENT_ID,
                     callback: handleCredentialResponse
                 });
+                // Render an explicit sign-in button (avoid One-Tap auto prompt)
+                const container = document.getElementById('g_id_signin');
+                if (container && google.accounts && google.accounts.id && typeof google.accounts.id.renderButton === 'function') {
+                    google.accounts.id.renderButton(container, {
+                        theme: 'outline',
+                        size: 'large',
+                        text: 'signin_with',
+                        shape: 'rectangular',
+                        logo_alignment: 'left'
+                    });
+                }
             } catch (error) {
                 console.warn('Google Sign-In não configurado corretamente. Certifique-se de adicionar seu CLIENT_ID.');
             }
