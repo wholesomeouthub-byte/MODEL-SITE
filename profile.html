@@ -138,17 +138,7 @@
             <div class="col-lg-9">
                 <!-- Perfil Section -->
                 <div id="perfil-section" class="content-section">
-                    <!-- Debug: mostrar conteúdo armazenado (localStorage.magstore_user) -->
-                    <div class="profile-card" id="storedUserCard" style="margin-bottom:20px;">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                            <h3 style="margin:0; font-size:1rem;">Dados de Autenticação (armazenados)</h3>
-                            <div style="gap:8px; display:flex;">
-                                <button id="btnShowStored" class="btn btn-sm btn-outline-secondary">Mostrar</button>
-                                <button id="btnCopyStored" class="btn btn-sm btn-outline-secondary">Copiar</button>
-                            </div>
-                        </div>
-                        <pre id="storedUserJSON" style="display:none; white-space:pre-wrap; word-break:break-word; background:#f8f9fa; padding:12px; border-radius:8px; max-height:220px; overflow:auto;">n/a</pre>
-                    </div>
+                    <!-- Debug UI removed for security: authentication data is no longer displayed -->
                     <!-- Estatísticas -->
                     <div class="stats-grid mb-4">
                         <div class="stat-box">
@@ -563,13 +553,7 @@
                 announce(`Bem-vindo ${userData.name}`);
 
                 // Populate stored JSON debug UI
-                try {
-                    const storedPre = document.getElementById('storedUserJSON');
-                    if (storedPre) {
-                        storedPre.textContent = JSON.stringify(userData, null, 2);
-                        console.log('magstore_user:', localStorage.getItem('magstore_user'));
-                    }
-                } catch (err) { console.warn('Erro ao popular debug de usuário', err); }
+                // Do not expose stored authentication data in the UI for security.
             }
 
             // Keyboard shortcuts (profile): e = editar, o = pedidos, a = endereços, l = logout
@@ -633,41 +617,7 @@
             setTimeout(() => { region.textContent = msg; }, 50);
         };
 
-        // Debug helpers for stored user JSON
-        const revealStoredUser = () => {
-            const pre = document.getElementById('storedUserJSON');
-            const btn = document.getElementById('btnShowStored');
-            if (!pre || !btn) return;
-            if (pre.style.display === 'none') {
-                pre.style.display = 'block';
-                btn.textContent = 'Ocultar';
-                announce('Mostrando dados armazenados');
-            } else {
-                pre.style.display = 'none';
-                btn.textContent = 'Mostrar';
-                announce('Ocultando dados armazenados');
-            }
-        };
-
-        const copyStoredUser = async () => {
-            const pre = document.getElementById('storedUserJSON');
-            if (!pre) return showToast('Nenhum dado disponível para copiar');
-            try {
-                await navigator.clipboard.writeText(pre.textContent || '');
-                showToast('Dados copiados para a área de transferência');
-            } catch (err) {
-                console.warn('Clipboard error', err);
-                showToast('Falha ao copiar — abra o console para ver detalhes');
-            }
-        };
-
-        // Wire up debug buttons after content loads
-        document.addEventListener('DOMContentLoaded', () => {
-            const btn = document.getElementById('btnShowStored');
-            const btnCopy = document.getElementById('btnCopyStored');
-            if (btn) btn.addEventListener('click', revealStoredUser);
-            if (btnCopy) btnCopy.addEventListener('click', copyStoredUser);
-        });
+        // Debug helpers removed to prevent exposing authentication data.
     </script>
 </body>
 </html>

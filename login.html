@@ -223,8 +223,7 @@
                     name: userData.name,
                     email: userData.email,
                     picture: userData.picture,
-                    loginTime: new Date().getTime(),
-                    accessToken: response.credential
+                    loginTime: new Date().getTime()
                 };
                 
                 localStorage.setItem('magstore_user', JSON.stringify(userInfo));
