@@ -70,6 +70,11 @@
     </style>
 </head>
 <body>
+    <!-- Live region for screen-reader announcements -->
+    <div id="ariaLive" aria-live="polite" style="position: absolute; left: -9999px; top: auto; width: 1px; height: 1px; overflow: hidden;"></div>
+
+    <!-- Toast container for small transient notifications -->
+    <div id="toastContainer" style="position: fixed; right: 20px; bottom: 20px; z-index: 2000; display: flex; flex-direction: column; gap: 10px;"></div>
     <!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-light bg-white sticky-top shadow-sm">
         <div class="container">
@@ -89,7 +94,7 @@
     <div class="profile-header">
         <div class="container">
             <div class="avatar-section">
-                <img src="https://i.pravatar.cc/150?img=1" alt="Avatar" class="avatar-img">
+                <img src="https://i.pravatar.cc/150?img=1" onerror="this.onerror=null;this.src='https://via.placeholder.com/150?text=User'" alt="Avatar" class="avatar-img">
                 <div class="profile-info">
                     <h1>João Silva</h1>
                     <p><i class="bi bi-envelope"></i> joao.silva@email.com</p>
@@ -498,6 +503,8 @@
                 localStorage.removeItem('magstore_user');
                 localStorage.removeItem('magstore_authenticated');
                 google.accounts.id.revoke('', () => {
+                    showToast('Você saiu da conta');
+                    announce('Sessão encerrada');
                     window.location.href = 'magstore.html';
                 });
             }
@@ -511,40 +518,100 @@
                 window.location.href = 'login.html';
                 return;
             }
-            
+
             // Carregar dados do usuário do Google
             const userDataStr = localStorage.getItem('magstore_user');
             if (userDataStr) {
                 const userData = JSON.parse(userDataStr);
-                
+
                 // Preencher informações pessoais
                 document.querySelector('.profile-info h1').textContent = userData.name;
-                
+
                 // Atualizar avatar
                 const avatarImg = document.querySelector('.avatar-img');
                 if (userData.picture) {
                     avatarImg.src = userData.picture;
                 }
-                
+
                 // Atualizar contatos no header
                 const profileInfoDivs = document.querySelectorAll('.profile-info p');
                 if (profileInfoDivs[0]) {
                     profileInfoDivs[0].innerHTML = `<i class="bi bi-envelope"></i> ${userData.email}`;
                 }
-                
+
                 // Preencher formulário de informações pessoais
                 const infoItems = document.querySelectorAll('.info-value');
                 if (infoItems[0]) {
-                    const nameParts = userData.name.split(' ');
                     infoItems[0].textContent = userData.name;
                 }
                 if (infoItems[2]) {
                     infoItems[2].textContent = userData.email;
                 }
+
+                showToast(`Bem-vindo, ${userData.name.split(' ')[0]}!`);
+                announce(`Bem-vindo ${userData.name}`);
             }
-            
+
+            // Keyboard shortcuts (profile): e = editar, o = pedidos, a = endereços, l = logout
+            document.addEventListener('keydown', (e) => {
+                const tag = document.activeElement.tagName.toLowerCase();
+                if (tag === 'input' || tag === 'textarea') return;
+                if (e.key === 'e') {
+                    e.preventDefault();
+                    document.querySelector('.btn-edit')?.click();
+                    announce('Abrindo edição de perfil');
+                }
+                if (e.key === 'o') {
+                    e.preventDefault();
+                    showSection('pedidos', new Event('click'));
+                    announce('Mostrando pedidos');
+                }
+                if (e.key === 'a') {
+                    e.preventDefault();
+                    showSection('enderecos', new Event('click'));
+                    announce('Mostrando endereços');
+                }
+                if (e.key === 'l') {
+                    e.preventDefault();
+                    logout(new Event('click'));
+                }
+            });
+
             console.log('Página de perfil carregada');
         });
+
+        // Toast utility and announce helper
+        const showToast = (message, opts = {}) => {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+            const toast = document.createElement('div');
+            toast.className = 'toast align-items-center text-bg-dark border-0 p-3';
+            toast.style.minWidth = '220px';
+            toast.style.boxShadow = '0 6px 18px rgba(0,0,0,0.3)';
+            const body = document.createElement('div');
+            body.style.display = 'flex';
+            body.style.justifyContent = 'space-between';
+            body.style.alignItems = 'center';
+            body.innerHTML = `<div style="flex:1; margin-right:8px;">${message}</div>`;
+            if (opts.undoText && typeof opts.undo === 'function') {
+                const undoBtn = document.createElement('button');
+                undoBtn.className = 'btn btn-sm btn-outline-light';
+                undoBtn.textContent = opts.undoText;
+                undoBtn.onclick = () => { opts.undo(); container.removeChild(toast); };
+                body.appendChild(undoBtn);
+            }
+            toast.appendChild(body);
+            container.appendChild(toast);
+            announce(message);
+            setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, opts.duration || 3500);
+        };
+
+        const announce = (msg) => {
+            const region = document.getElementById('ariaLive');
+            if (!region) return;
+            region.textContent = '';
+            setTimeout(() => { region.textContent = msg; }, 50);
+        };
     </script>
 </body>
 </html>
