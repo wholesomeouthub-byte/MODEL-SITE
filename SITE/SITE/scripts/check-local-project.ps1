@@ -4,9 +4,20 @@ Automatic local project health check for XAMPP-based PHP site.
 - Performs basic checks: XAMPP presence, Apache service, HTTP accessibility, PHP binary, and DB config hints.
 #>
 
-$report = @()
+param(
+    [string]$SiteName = "NEWS-SITE"
+)
 
-function Add-Line([string]$line) { $report += $line }
+$report = @()
+$timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+
+function Add-Line([string]$line) { 
+    $report += "[$timestamp] $line" 
+}
+
+# Detect current script location for more accurate path resolution
+$scriptDir = Split-Path $MyInvocation.MyCommand.Path -Parent
+$projectRoot = Split-Path $scriptDir -Parent
 
 # 1) Check XAMPP installation
 $xamppRoot = "C:\\xampp"
@@ -25,7 +36,7 @@ try {
     Add-Line "[WARN] Apache service not found (may need to start from XAMPP Control Panel)"
   }
 } catch {
-  Add-Line "[WARN] Unable to query Apache service: $_"
+    Add-Line "[WARN] Unable to query Apache service: $($_.Exception.Message)"
 }
 
 # 3) Test HTTP access to NEWS-SITE
@@ -38,7 +49,7 @@ try {
     Add-Line "[WARN] HTTP GET $url returned $($resp.StatusCode)"
   }
 } catch {
-  Add-Line "[ERROR] HTTP GET $url failed: $_"
+    Add-Line "[ERROR] HTTP GET $url failed: $($_.Exception.Message)"
 }
 
 # 4) PHP version check
@@ -51,28 +62,73 @@ try {
     Add-Line "[WARN] PHP executable not found at $phpExe"
   }
 } catch {
-  Add-Line "[ERROR] PHP check failed: $_"
+    Add-Line "[ERROR] PHP check failed: $($_.Exception.Message)"
 }
 
-# 5) DB config hints (optional)
-$siteRoot = Join-Path $xamppRoot "htdocs\NEWS-SITE"
+# 5) Check project files existence
+$siteRoot = Join-Path $xamppRoot "htdocs\$SiteName"
+Add-Line "[INFO] Checking project files at: $siteRoot"
+
 try {
-  if (Test-Path $siteRoot) {
-    $phpFiles = Get-ChildItem -Path $siteRoot -Recurse -Filter *.php -ErrorAction SilentlyContinue
-    if ($phpFiles) {
-      $matches = $phpFiles | Select-String -Pattern "DB_HOST|DB_NAME|mysqli_connect|PDO|pdo" -List
-      if ($matches) {
-        Add-Line "[INFO] DB hints detected in PHP files (DB_HOST/DB_NAME or mysqli/pdo usage)"
-      } else {
-        Add-Line "[INFO] No DB configuration hints found in PHP files"
-      }
+    if (Test-Path $siteRoot) {
+        Add-Line "[OK] Site directory exists: $siteRoot"
+        
+        # Check for essential files
+        $essentialFiles = @("index.php", "functions.php", "header.php", "footer.php")
+        foreach ($file in $essentialFiles) {
+            $filePath = Join-Path $siteRoot $file
+            if (Test-Path $filePath) {
+                Add-Line "[OK] Found essential file: $file"
+            } else {
+                Add-Line "[WARN] Missing essential file: $file"
+            }
+        }
+        
+        # DB config hints (optional)
+        $phpFiles = Get-ChildItem -Path $siteRoot -Recurse -Filter *.php -ErrorAction SilentlyContinue
+        if ($phpFiles) {
+            $dbMatches = $phpFiles | Select-String -Pattern "DB_HOST|DB_NAME|mysqli_connect|PDO|pdo" -List
+            if ($dbMatches) {
+                Add-Line "[INFO] DB configuration hints detected in PHP files"
+            } else {
+                Add-Line "[INFO] No DB configuration hints found in PHP files"
+            }
+        }
+    } else {
+        Add-Line "[ERROR] Site directory does not exist: $siteRoot"
+        Add-Line "[INFO] Current project location: $projectRoot"
     }
-  }
 } catch {
-  Add-Line "[WARN] DB config scan failed: $_"
+    Add-Line "[WARN] Project file check failed: $($_.Exception.Message)"
 }
 
-# 6) Write report
-$log = Join-Path $siteRoot "health_check_report.txt"
-$report | Out-File -FilePath $log -Encoding utf8
-Write-Host "Health check report written to: $log" -ForegroundColor Green
+# 6) Write comprehensive report
+try {
+    $logFileName = "health_check_report_$(Get-Date -Format 'yyyyMMdd_HHmmss').txt"
+    $logPath = Join-Path $projectRoot $logFileName
+    
+    if (-not (Test-Path $projectRoot)) {
+        # Fallback to desktop if project root doesn't exist
+        $logPath = Join-Path $env:USERPROFILE "Desktop\$logFileName"
+    }
+    
+    $report | Out-File -FilePath $logPath -Encoding utf8
+    Write-Host "Health check report written to: $logPath" -ForegroundColor Green
+} catch {
+    Write-Host "Failed to write report file: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Display summary
+Write-Host "`n=== HEALTH CHECK SUMMARY ===" -ForegroundColor Cyan
+foreach ($line in $report) {
+    if ($line -match "\[ERROR\]") {
+        Write-Host $line -ForegroundColor Red
+    } elseif ($line -match "\[WARN\]") {
+        Write-Host $line -ForegroundColor Yellow
+    } elseif ($line -match "\[OK\]") {
+        Write-Host $line -ForegroundColor Green
+    } else {
+        Write-Host $line -ForegroundColor White
+    }
+}
+Write-Host "============================`n" -ForegroundColor Cyan

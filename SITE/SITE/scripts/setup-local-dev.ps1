@@ -19,47 +19,88 @@ Write-Host "Destination: $destRoot"
 Write-Host "Mode: $Mode"
 
 # Ensure destination parent exists
--$destParent = Split-Path $destRoot -Parent
--if (-not (Test-Path $destParent)) { New-Item -ItemType Directory -Path $destParent -Force | Out-Null }
+$destParent = Split-Path $destRoot -Parent
+if (-not (Test-Path $destParent)) { 
+    try {
+        New-Item -ItemType Directory -Path $destParent -Force | Out-Null
+        Write-Host "[INFO] Created parent directory: $destParent"
+    } catch {
+        Write-Host "[ERROR] Failed to create parent directory: $_"
+        exit 1
+    }
+}
 
 switch ($Mode) {
   "Copy" {
-    if (-not (Test-Path $srcRoot)) { Write-Host "[ERROR] Source not found: $srcRoot"; exit 1 }
-    if (-not (Test-Path $destRoot)) { New-Item -ItemType Directory -Path $destRoot -Force | Out-Null }
+    if (-not (Test-Path $srcRoot)) { 
+        Write-Host "[ERROR] Source not found: $srcRoot"
+        exit 1 
+    }
+    if (-not (Test-Path $destRoot)) { 
+        try {
+            New-Item -ItemType Directory -Path $destRoot -Force | Out-Null
+            Write-Host "[INFO] Created destination directory: $destRoot"
+        } catch {
+            Write-Host "[ERROR] Failed to create destination directory: $_"
+            exit 1
+        }
+    }
     Write-Host "[INFO] Copying content..."
-    robocopy "$srcRoot" "$destRoot" /MIR /XD ".git" > $null
-    Write-Host "[INFO] Copy finished. Check $destRoot"
+    try {
+        robocopy "$srcRoot" "$destRoot" /MIR /XD ".git" > $null
+        Write-Host "[INFO] Copy finished. Check $destRoot"
+    } catch {
+        Write-Host "[ERROR] Copy operation failed: $_"
+        exit 1
+    }
   }
   "Link" {
-    if (-not (Test-Path $srcRoot)) { Write-Host "[ERROR] Source not found: $srcRoot"; exit 1 }
-    if (Test-Path $destRoot) { Write-Host "[WARN] Destination exists. Skipping link creation."; break }
+    if (-not (Test-Path $srcRoot)) { 
+        Write-Host "[ERROR] Source not found: $srcRoot"
+        exit 1 
+    }
+    if (Test-Path $destRoot) { 
+        Write-Host "[WARN] Destination exists. Skipping link creation."
+        break 
+    }
     Write-Host "[INFO] Creating junction..."
-    New-Item -ItemType Junction -Path "$destRoot" -Target "$srcRoot" | Out-Null
-    Write-Host "[INFO] Junction created. Now NEWS-SITE is accessible via $destRoot"
+    try {
+        New-Item -ItemType Junction -Path "$destRoot" -Target "$srcRoot" | Out-Null
+        Write-Host "[INFO] Junction created. Now NEWS-SITE is accessible via $destRoot"
+    } catch {
+        Write-Host "[ERROR] Failed to create junction: $_"
+        exit 1
+    }
   }
 }
  
 # Optional configuration steps
 if ($ApplyConfig.IsPresent) {
   Write-Host "[CONFIG] Applying VirtualHost and hosts configuration..."
-  # 2) Add hosts entry
+  
+  # Add hosts entry
   $hostsFile = "$env:SystemRoot\System32\drivers\etc\hosts"
   if (Test-Path $hostsFile) {
-    if (-not (Select-String -Path $hostsFile -Pattern "news-site.local" -Quiet)) {
-      "127.0.0.1 news-site.local" | Add-Content $hostsFile
-      Write-Host "[CONFIG] Hosts entry added: news-site.local -> 127.0.0.1"
-    } else {
-      Write-Host "[CONFIG] Hosts entry already exists for news-site.local"
+    try {
+        if (-not (Select-String -Path $hostsFile -Pattern "news-site.local" -Quiet)) {
+            "127.0.0.1 news-site.local" | Add-Content $hostsFile
+            Write-Host "[CONFIG] Hosts entry added: news-site.local -> 127.0.0.1"
+        } else {
+            Write-Host "[CONFIG] Hosts entry already exists for news-site.local"
+        }
+    } catch {
+        Write-Host "[WARN] Failed to modify hosts file: $_"
     }
   } else {
     Write-Warning "Hosts file not found at $hostsFile"
   }
 
-  # 3) Add virtual host entry
+  # Add virtual host entry
   $vhConf = "C:\\xampp\\apache\\conf\\extra\\httpd-vhosts.conf"
   if (Test-Path $vhConf) {
-    if (-not (Select-String -Path $vhConf -Pattern "news-site.local" -Quiet)) {
-      $vhBlock = @"
+    try {
+        if (-not (Select-String -Path $vhConf -Pattern "news-site.local" -Quiet)) {
+            $vhBlock = @"
 <VirtualHost *:80>
   ServerName news-site.local
   DocumentRoot "{0}"
@@ -70,10 +111,13 @@ if ($ApplyConfig.IsPresent) {
   </Directory>
 </VirtualHost>
 "@ -f $destRoot
-      Add-Content $vhConf $vhBlock
-      Write-Host "[CONFIG] VirtualHost added for news-site.local pointing to $destRoot"
-    } else {
-      Write-Host "[CONFIG] VirtualHost entry already exists in httpd-vhosts.conf"
+            Add-Content $vhConf $vhBlock
+            Write-Host "[CONFIG] VirtualHost added for news-site.local pointing to $destRoot"
+        } else {
+            Write-Host "[CONFIG] VirtualHost entry already exists in httpd-vhosts.conf"
+        }
+    } catch {
+        Write-Host "[WARN] Failed to modify virtual host configuration: $_"
     }
   } else {
     Write-Warning "httpd-vhosts.conf not found at $vhConf"
@@ -81,8 +125,19 @@ if ($ApplyConfig.IsPresent) {
   Write-Host "[CONFIG] NOTE: You must restart Apache for changes to take effect."
 }
 
-# 4) Run health check
+# Run health check with improved path resolution
 Write-Host "[INFO] Running local health check..."
-& '.\SITE\scripts\check-local-project.ps1'
+try {
+    $scriptDir = Split-Path $MyInvocation.MyCommand.Path -Parent
+    $healthCheckScript = Join-Path $scriptDir "check-local-project.ps1"
+    if (Test-Path $healthCheckScript) {
+        & $healthCheckScript
+    } else {
+        Write-Host "[WARN] Health check script not found at: $healthCheckScript"
+    }
+} catch {
+    Write-Host "[ERROR] Health check execution failed: $_"
+}
 
+Write-Host "Setup completed successfully!"
 Write-Host "Next steps: Ensure Apache is running in XAMPP Control Panel. If using a VirtualHost, ensure it points to NEWS-SITE accordingly."
