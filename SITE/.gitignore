@@ -1,0 +1,8 @@
+# Ignore files from parent directory worktrees (if present)
+../login.html
+../magstore.html
+../profile.html
+
+# General ignores (adjust as needed)
+*.log
+*.tmp
